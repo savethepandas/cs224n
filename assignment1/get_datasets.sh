@@ -12,7 +12,7 @@ else
   curl -O http://nlp.stanford.edu/~socherr/stanfordSentimentTreebank.zip
 fi
 unzip stanfordSentimentTreebank.zip
-rm stanfordSentimentTreebank.zip
+# rm stanfordSentimentTreebank.zip
 
 # Get 50D GloVe vectors
 if hash wget 2>/dev/null; then

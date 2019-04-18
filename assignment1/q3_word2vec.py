@@ -55,11 +55,11 @@ def softmaxCostAndGradient(predicted, target, outputVectors, dataset):
     assignment!
     """
 
-    scoreVectors = outputVectors.dot(predicted)  # (V x h) * (h x 1) = (V x 1)
+    scoreVectors = outputVectors.dot(predicted)  # step 3/4: generate sccore vectors. (V x h) * (h x 1) = (V x 1)
     scoreVectorsExp = np.exp(scoreVectors)
-    outputProbs = scoreVectorsExp / scoreVectorsExp.sum()
+    outputProbs = scoreVectorsExp / scoreVectorsExp.sum()  # step 4/5: convert to prob
     targetProb = outputProbs[target]  # yhat_o
-    cost = -1 * np.log(targetProb)
+    cost = -1 * np.log(targetProb)  # step 5/6: see how well it matches actual word
     gradPred = (outputVectors * scoreVectorsExp).sum(axis=0) / scoreVectorsExp.sum() - outputVectors[target]
     gradPred = np.reshape(gradPred, (-1, 1))
 
@@ -76,7 +76,7 @@ def getNegativeSamples(target, dataset, K):
     for k in range(K):
         newidx = dataset.sampleTokenIdx()
         while newidx == target:
-            newidx = dataset.sampleTokenIdx()
+           newidx = dataset.sampleTokenIdx()
         indices[k] = newidx
     return indices
 
@@ -109,8 +109,9 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, dataset,
     gradPred = np.reshape(gradPred, (-1, 1))
 
     grad = np.zeros(outputVectors.shape)
+    predicted = np.ravel(predicted)
     for i in indices:
-        grad[i, :] += -np.ravel(predicted.T) * (1 - sigmoid(scoreVectors[i, :]))
+        grad[i, :] += -predicted * (1 - sigmoid(scoreVectors[i, :]))
     return cost, gradPred, grad
 
 
@@ -143,11 +144,11 @@ def skipgram(currentWord, C, contextWords, tokens, inputVectors, outputVectors,
     gradOut = np.zeros(outputVectors.shape)
 
     wordVector = np.zeros((len(tokens), 1))
-    wordVector[tokens[currentWord]] = 1
-    hiddenLayer = inputVectors.T.dot(wordVector)  # (H x V) x (V x 1) = (H x 1)
+    wordVector[tokens[currentWord]] = 1  # step 1: generate one-hot for center word
+    hiddenLayer = inputVectors.T.dot(wordVector)  # step 2: get embedded word vector. (H x V) x (V x 1) = (H x 1)
 
     totalGradIn = np.zeros(hiddenLayer.shape)
-    for contextWord in contextWords:
+    for contextWord in contextWords:  # for each context word, we calc prob of each word appearing and compare
         costSingleWord, gradPred, grad = word2vecCostAndGradient(hiddenLayer, tokens[contextWord], outputVectors, dataset)
         cost += costSingleWord
         totalGradIn += gradPred
@@ -174,10 +175,16 @@ def cbow(currentWord, C, contextWords, tokens, inputVectors, outputVectors,
     gradIn = np.zeros(inputVectors.shape)
     gradOut = np.zeros(outputVectors.shape)
 
-    ### YOUR CODE HERE
-    # raise NotImplementedError
-    ### END YOUR CODE
+    wordVectors = np.zeros((len(tokens), len(contextWords)))
+    for i, contextWord in enumerate(contextWords):
+        wordVectors[tokens[contextWord], i] = 1  # step 1: convert context words to one-hot
+    hiddenLayer = inputVectors.T.dot(wordVectors)  # step 2: get embedded word vectors. (H x V) x (V x C) = (H x C)
+    predictedVector = hiddenLayer.sum(axis=1, keepdims=True)  # step 3: average the context vectors. (H x 1)
 
+    cost, gradPred, gradOut = word2vecCostAndGradient(predictedVector, tokens[currentWord], outputVectors, dataset)
+    gradPred = np.ravel(gradPred)
+    for contextWord in contextWords:
+        gradIn[tokens[contextWord], :] += gradPred
     return cost, gradIn, gradOut
 
 
@@ -253,7 +260,7 @@ def test_word2vec():
         skipgram, dummy_tokens, vec, dataset, 5, negSamplingCostAndGradient),
         dummy_vectors)
     print("\n==== Gradient check for CBOW      ====")
-    gradcheck_naive(lambda vec: word2vec_sgd_wrapper(
+    assert gradcheck_naive(lambda vec: word2vec_sgd_wrapper(
         cbow, dummy_tokens, vec, dataset, 5, softmaxCostAndGradient),
         dummy_vectors)
     gradcheck_naive(lambda vec: word2vec_sgd_wrapper(
